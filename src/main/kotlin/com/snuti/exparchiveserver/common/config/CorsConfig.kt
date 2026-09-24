@@ -15,12 +15,12 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource
  */
 @Configuration
 class CorsConfig(
-    @Value("\${app.cors.allowed-origins}") private val allowedOrigins: String
+    @Value("\${app.cors.allowed-origins}") private val configuredAllowedOrigins: String
 ) {
     @Bean
     fun corsConfigurationSource(): CorsConfigurationSource {
         val configuration = CorsConfiguration().apply {
-            allowedOrigins = allowedOrigins
+            allowedOrigins = configuredAllowedOrigins
                 .split(',')
                 .map(String::trim)
                 .filter(String::isNotBlank)
