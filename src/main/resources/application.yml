@@ -1,11 +1,12 @@
 server:
-  port: 8080
+  port: ${PORT:8080}
 
 spring:
   datasource:
-    url: '${DB_URL:jdbc:mysql://avnadmin:AVNS_HojgG_Lurgxf9EkKmCC@lecture-archive-db-snuti-exp-archive-server.b.aivencloud.com:21711/defaultdb?ssl-mode=REQUIRED}'
-    username: '${DB_USER:avnadmin}'
-    password: '${DB_PASSWORD:AVNS_HojgG_Lurgxf9EkKmCC}'
+    # Set these through the IDE, Docker/Cloud Run, or a secret manager. Never commit values here.
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
   jpa:
     hibernate:
       ddl-auto: validate
@@ -21,8 +22,9 @@ spring:
   mail:
     host: smtp.gmail.com
     port: 587
-    username: "${GMAIL_USERNAME:trailsnuti@gmail.com}"
-    password: "${GMAIL_APP_PASSWORD:pakb ykvr fpep kekq}"
+    # Email endpoints fail when these are blank; normal server startup does not require mail.
+    username: ${GMAIL_USERNAME:}
+    password: ${GMAIL_APP_PASSWORD:}
     properties:
       mail:
         smtp:
@@ -38,8 +40,24 @@ cloud:
 
 app:
   jwt:
-    secret: ${JWT_SECRET:change-me-please-change-this-to-a-long-secret}
+    secret: ${JWT_SECRET}
     issuer: lecture-archive
     access-token-exp-minutes: 60
   cdn:
     base-url: https://snuti-exp-archive-images-2026.s3.ap-northeast-2.amazonaws.com
+  cors:
+    # Add other trusted origins through CORS_ALLOWED_ORIGINS as a comma-separated list.
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:https://haru1dh.github.io,http://localhost:5173,http://localhost:63342}
+
+management:
+  health:
+    mail:
+      enabled: false
+  endpoint:
+    health:
+      # The public dashboard receives only UP/DOWN, never dependency details.
+      show-details: never
+  endpoints:
+    web:
+      exposure:
+        include: health

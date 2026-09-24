@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.security.SecurityScheme
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.http.HttpMethod
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.http.SessionCreationPolicy
@@ -28,9 +29,14 @@ class SecurityConfig(
     fun filterChain(http: HttpSecurity): SecurityFilterChain {
         http
             .csrf { it.disable() }
+            .cors { }
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
             .authorizeHttpRequests {
+                // These routes use @AuthenticationPrincipal and must not be covered by /auth/**.
+                it.requestMatchers(HttpMethod.PATCH, "/auth/password").authenticated()
+                it.requestMatchers(HttpMethod.DELETE, "/auth/me").authenticated()
                 it.requestMatchers("/auth/**").permitAll()
+                it.requestMatchers("/actuator/health").permitAll()
                 it.requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 it.requestMatchers("/admin/**").hasRole("ADMIN")
                 it.requestMatchers("/lectures/**").authenticated()

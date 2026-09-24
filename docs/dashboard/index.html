@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="SNUTI ExP Archive Server의 상태와 강연 데이터를 확인하는 실시간 대시보드">
+    <title>SNUTI ExP Archive · Live Console</title>
+    <link rel="stylesheet" href="assets/styles.css">
+    <script src="api-config.js"></script>
+    <script src="assets/app.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">본문으로 건너뛰기</a>
+
+    <header class="site-header">
+      <div>
+        <p class="eyebrow">SNUTI · ExP Archive</p>
+        <h1>Live Console</h1>
+        <p class="lede">서버 상태를 30초마다 확인하고, 로그인한 계정의 강연 아카이브를 바로 살펴봅니다.</p>
+      </div>
+      <div class="connection-chip" id="connection-chip" aria-live="polite">
+        <span class="status-dot status-dot--neutral"></span>
+        <span>연결 대상 설정 필요</span>
+      </div>
+    </header>
+
+    <main id="main-content">
+      <section class="dashboard-grid" aria-label="서버 연결 설정과 상태">
+        <article class="panel panel--settings">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">01 · Connection</p>
+              <h2>API 연결</h2>
+            </div>
+          </div>
+          <form id="api-config-form" class="stack">
+            <label for="api-base-url">Cloud Run API 주소</label>
+            <div class="input-row">
+              <input
+                id="api-base-url"
+                name="apiBaseUrl"
+                type="url"
+                inputmode="url"
+                placeholder="https://your-service-xxxxx-an.a.run.app"
+                autocomplete="url"
+                required
+              >
+              <button class="button button--primary" type="submit">저장 · 확인</button>
+            </div>
+            <p class="help">API URL은 공개 정보입니다. 비밀번호, JWT secret, DB 주소는 절대 입력하지 마세요.</p>
+          </form>
+          <dl class="facts">
+            <div>
+              <dt>Health endpoint</dt>
+              <dd id="health-endpoint">설정 전</dd>
+            </div>
+            <div>
+              <dt>자동 새로고침</dt>
+              <dd>30초</dd>
+            </div>
+          </dl>
+        </article>
+
+        <article class="panel panel--status">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">02 · Health</p>
+              <h2>서버 상태</h2>
+            </div>
+            <button class="icon-button" id="health-refresh" type="button" aria-label="서버 상태 새로고침">↻</button>
+          </div>
+          <div class="health-state" id="health-state" aria-live="polite">
+            <span class="status-dot status-dot--neutral"></span>
+            <strong>대기 중</strong>
+          </div>
+          <p class="status-copy" id="health-copy">Cloud Run API 주소를 설정하면 상태를 확인합니다.</p>
+          <dl class="facts">
+            <div>
+              <dt>마지막 확인</dt>
+              <dd id="health-checked-at">—</dd>
+            </div>
+            <div>
+              <dt>응답 시간</dt>
+              <dd id="health-latency">—</dd>
+            </div>
+          </dl>
+        </article>
+      </section>
+
+      <section class="panel auth-panel" aria-labelledby="auth-title">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">03 · Session</p>
+            <h2 id="auth-title">로그인</h2>
+          </div>
+          <span class="session-label" id="session-label">로그인하지 않음</span>
+        </div>
+        <form class="auth-form" id="login-form">
+          <label>
+            이메일
+            <input id="email" name="email" type="email" autocomplete="email" required placeholder="name@example.com">
+          </label>
+          <label>
+            비밀번호
+            <input id="password" name="password" type="password" autocomplete="current-password" required>
+          </label>
+          <div class="auth-actions">
+            <button class="button button--primary" type="submit">로그인 후 강연 불러오기</button>
+            <button class="button button--ghost" id="logout-button" type="button" hidden>로그아웃</button>
+          </div>
+        </form>
+        <p class="help">비밀번호는 저장하지 않습니다. access token은 이 브라우저 탭의 session storage에만 유지됩니다.</p>
+      </section>
+
+      <section class="content-layout" aria-label="강연 아카이브">
+        <article class="panel lectures-panel">
+          <div class="panel-heading panel-heading--wrap">
+            <div>
+              <p class="eyebrow">04 · Archive</p>
+              <h2>최근 강연</h2>
+            </div>
+            <div class="toolbar">
+              <label class="visually-hidden" for="lecture-search">강연 검색</label>
+              <input id="lecture-search" type="search" placeholder="제목·주제 검색">
+              <button class="button button--ghost" id="lecture-refresh" type="button">새로고침</button>
+            </div>
+          </div>
+          <p class="empty-state" id="lecture-summary">로그인하면 최신 강연을 불러옵니다.</p>
+          <div class="lecture-list" id="lecture-list" aria-live="polite"></div>
+        </article>
+
+        <aside class="panel detail-panel" aria-labelledby="detail-title">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">05 · Detail</p>
+              <h2 id="detail-title">강연 상세</h2>
+            </div>
+          </div>
+          <div id="lecture-detail" class="detail-content">
+            <p class="empty-state">왼쪽 목록에서 강연을 선택하세요.</p>
+          </div>
+        </aside>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <span>SNUTI ExP Archive Server dashboard</span>
+      <a id="swagger-link" href="#" target="_blank" rel="noreferrer" hidden>Swagger API 열기 ↗</a>
+    </footer>
+
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  </body>
+</html>
