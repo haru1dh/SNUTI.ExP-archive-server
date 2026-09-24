@@ -21,6 +21,10 @@ spring:
       max-file-size: 10MB
       max-request-size: 50MB
 
+  mail:
+    username: test@example.com
+    password: test-only-password
+
 cloud:
   aws:
     region: ap-northeast-2
@@ -28,5 +32,7 @@ cloud:
       bucket: test-bucket
 
 app:
+  jwt:
+    secret: test-only-signing-key-that-is-long-enough-for-hs256
   cdn:
     base-url: https://test.local
