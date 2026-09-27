@@ -20,6 +20,13 @@
     password: document.querySelector("#password"),
     sessionLabel: document.querySelector("#session-label"),
     logout: document.querySelector("#logout-button"),
+    interestPanel: document.querySelector("#interest-panel"),
+    interestForm: document.querySelector("#interest-form"),
+    interestRefresh: document.querySelector("#interest-refresh"),
+    interestCopy: document.querySelector("#interest-copy"),
+    interestTagList: document.querySelector("#interest-tag-list"),
+    showInterestLectures: document.querySelector("#show-interest-lectures"),
+    archiveModeButtons: document.querySelectorAll("[data-archive-mode]"),
     lectureSearch: document.querySelector("#lecture-search"),
     lectureRefresh: document.querySelector("#lecture-refresh"),
     lectureSummary: document.querySelector("#lecture-summary"),
@@ -32,7 +39,10 @@
   const state = {
     apiBaseUrl: "",
     token: sessionStorage.getItem(TOKEN_KEY) || "",
-    lectures: []
+    lectures: [],
+    availableTags: [],
+    interestTagIds: new Set(),
+    archiveMode: "recent"
   };
 
   function configuredUrl() {
@@ -116,6 +126,8 @@
     const signedIn = Boolean(state.token);
     elements.sessionLabel.textContent = signedIn ? "현재 탭에서 로그인됨" : "로그인하지 않음";
     elements.logout.hidden = !signedIn;
+    elements.interestPanel.hidden = !signedIn;
+    updateArchiveModeUi();
   }
 
   async function checkHealth({ quiet = false } = {}) {
@@ -169,7 +181,11 @@
       elements.password.value = "";
       updateSessionUi();
       showToast("로그인되었습니다. 강연을 불러옵니다.");
-      await Promise.all([checkHealth({ quiet: true }), refreshLectures()]);
+      await Promise.all([
+        checkHealth({ quiet: true }),
+        refreshLectures(),
+        loadInterestSettings({ quiet: true })
+      ]);
     } catch (error) {
       showToast(`로그인 실패: ${toErrorMessage(error)}`, true);
     }
@@ -178,11 +194,16 @@
   function logout() {
     state.token = "";
     state.lectures = [];
+    state.availableTags = [];
+    state.interestTagIds = new Set();
+    state.archiveMode = "recent";
     sessionStorage.removeItem(TOKEN_KEY);
     updateSessionUi();
     elements.lectureList.innerHTML = "";
     elements.lectureSummary.textContent = "로그아웃했습니다. 다시 로그인하면 강연을 불러옵니다.";
     elements.lectureDetail.innerHTML = '<p class="empty-state">왼쪽 목록에서 강연을 선택하세요.</p>';
+    elements.interestTagList.innerHTML = "";
+    elements.interestCopy.textContent = "로그인한 뒤 관심 키워드를 선택하세요.";
     showToast("로그아웃했습니다.");
   }
 
@@ -193,15 +214,24 @@
       return;
     }
 
+    const isInterestMode = state.archiveMode === "interest";
     const keyword = elements.lectureSearch.value.trim();
-    const query = keyword
-      ? `/lectures/search?keyword=${encodeURIComponent(keyword)}&page=0&size=12`
-      : "/lectures?page=0&size=12&sort=lectureDate,desc";
-    elements.lectureSummary.textContent = keyword ? `“${keyword}” 검색 중…` : "최근 강연을 불러오는 중…";
+    const query = isInterestMode
+      ? "/lectures/recommended?page=0&size=12"
+      : keyword
+        ? "/lectures/search?keyword=" + encodeURIComponent(keyword) + "&page=0&size=12"
+        : "/lectures?page=0&size=12&sort=lectureDate,desc";
+
+    elements.lectureSummary.textContent = isInterestMode
+      ? "관심 강좌를 불러오는 중…"
+      : keyword
+        ? "“" + keyword + "” 검색 중…"
+        : "최근 강연을 불러오는 중…";
+
     try {
       const body = await request(query, { headers: headers(true) });
       state.lectures = Array.isArray(body?.content) ? body.content : [];
-      renderLectures(body, keyword);
+      renderLectures(body, keyword, isInterestMode);
     } catch (error) {
       const message = toErrorMessage(error);
       if (/401|403|Unauthorized|Access Denied/i.test(message)) logout();
@@ -210,34 +240,136 @@
     }
   }
 
-  function renderLectures(page, keyword) {
+  function renderLectures(page, keyword, isInterestMode) {
     const count = Number.isFinite(page?.totalElements) ? page.totalElements : state.lectures.length;
-    elements.lectureSummary.textContent = keyword
-      ? `검색 결과 ${count}개`
-      : `총 ${count}개 중 최근 ${state.lectures.length}개`;
+    elements.lectureSummary.textContent = isInterestMode
+      ? count
+        ? "관심 키워드와 일치하는 강연 " + count + "개"
+        : "선택한 관심 키워드와 일치하는 공개 강연이 없습니다."
+      : keyword
+        ? "검색 결과 " + count + "개"
+        : "총 " + count + "개 중 최근 " + state.lectures.length + "개";
+
     if (!state.lectures.length) {
       elements.lectureList.innerHTML = '<p class="empty-state">표시할 강연이 없습니다.</p>';
       return;
     }
 
     elements.lectureList.innerHTML = state.lectures.map((lecture) => {
-      const tags = Array.isArray(lecture.tags) ? lecture.tags.map((tag) => tag.name).filter(Boolean) : [];
+      const tags = Array.isArray(lecture.tags) ? lecture.tags.filter((tag) => tag?.name) : [];
+      const matchingTags = tags.filter((tag) => state.interestTagIds.has(Number(tag.id)));
+      const badgeTag = isInterestMode && matchingTags.length ? matchingTags[0] : tags[0];
       const date = formatDate(lecture.lectureDate);
       const presenter = lecture.lecturerName || lecture.topic || "강연 정보";
-      return `
-        <button class="lecture-card" type="button" data-lecture-id="${Number(lecture.id)}">
-          <span>
-            <strong class="lecture-card__title">${escapeHtml(lecture.title || "제목 없음")}</strong>
-            <span class="lecture-card__meta">${escapeHtml(date)} · ${escapeHtml(presenter)}</span>
-          </span>
-          ${tags[0] ? `<span class="lecture-card__tag">${escapeHtml(tags[0])}</span>` : ""}
-        </button>
-      `;
+      return [
+        '<button class="lecture-card" type="button" data-lecture-id="', Number(lecture.id), '">',
+        '<span>',
+        '<strong class="lecture-card__title">', escapeHtml(lecture.title || "제목 없음"), '</strong>',
+        '<span class="lecture-card__meta">', escapeHtml(date), ' · ', escapeHtml(presenter), '</span>',
+        '</span>',
+        badgeTag ? '<span class="lecture-card__tag">#' + escapeHtml(badgeTag.name) + '</span>' : "",
+        '</button>'
+      ].join("");
     }).join("");
 
     elements.lectureList.querySelectorAll("[data-lecture-id]").forEach((button) => {
       button.addEventListener("click", () => loadLectureDetail(button.dataset.lectureId));
     });
+  }
+
+  async function loadInterestSettings({ quiet = false } = {}) {
+    if (!state.token || !state.apiBaseUrl) return;
+
+    elements.interestCopy.textContent = "관심 키워드 목록을 불러오는 중…";
+    try {
+      const results = await Promise.all([
+        request("/tags", { headers: headers(true) }),
+        request("/users/me/interests", { headers: headers(true) })
+      ]);
+      state.availableTags = Array.isArray(results[0]) ? results[0] : [];
+      state.interestTagIds = new Set(
+        (Array.isArray(results[1]) ? results[1] : [])
+          .map((tag) => Number(tag.id))
+          .filter(Number.isFinite)
+      );
+      renderInterestTags();
+    } catch (error) {
+      elements.interestCopy.textContent = "관심 키워드를 불러오지 못했습니다.";
+      if (!quiet) showToast(toErrorMessage(error), true);
+    }
+  }
+
+  function renderInterestTags() {
+    const count = state.interestTagIds.size;
+    elements.interestCopy.textContent = state.availableTags.length
+      ? "관심 키워드 " + count + "개 선택됨 · 저장하면 모든 기기에서 같은 추천을 볼 수 있습니다."
+      : "관리자가 등록한 키워드가 아직 없습니다.";
+
+    if (!state.availableTags.length) {
+      elements.interestTagList.innerHTML = '<p class="empty-state">선택할 키워드가 없습니다.</p>';
+      return;
+    }
+
+    elements.interestTagList.innerHTML = state.availableTags.map((tag) => {
+      const id = Number(tag.id);
+      const checked = state.interestTagIds.has(id) ? " checked" : "";
+      return '<label class="interest-chip"><input type="checkbox" value="' + id + '"' + checked + '><span>#' + escapeHtml(tag.name || "") + '</span></label>';
+    }).join("");
+
+    elements.interestTagList.querySelectorAll("input[type=checkbox]").forEach((input) => {
+      input.addEventListener("change", () => {
+        const tagId = Number(input.value);
+        if (input.checked) {
+          state.interestTagIds.add(tagId);
+        } else {
+          state.interestTagIds.delete(tagId);
+        }
+        renderInterestTags();
+      });
+    });
+  }
+
+  async function saveInterestTags(event) {
+    event.preventDefault();
+    if (!state.token) return;
+
+    const tagIds = [...state.interestTagIds].filter(Number.isFinite);
+    try {
+      const savedTags = await request("/users/me/interests", {
+        method: "PUT",
+        headers: { ...headers(true), "Content-Type": "application/json" },
+        body: JSON.stringify({ tagIds })
+      });
+      state.interestTagIds = new Set(
+        (Array.isArray(savedTags) ? savedTags : [])
+          .map((tag) => Number(tag.id))
+          .filter(Number.isFinite)
+      );
+      renderInterestTags();
+      showToast(tagIds.length ? "관심 키워드를 저장했습니다." : "관심 키워드를 모두 해제했습니다.");
+      if (state.archiveMode === "interest") refreshLectures();
+    } catch (error) {
+      showToast(toErrorMessage(error), true);
+    }
+  }
+
+  function selectArchiveMode(mode) {
+    state.archiveMode = mode === "interest" ? "interest" : "recent";
+    updateArchiveModeUi();
+    refreshLectures();
+  }
+
+  function updateArchiveModeUi() {
+    const isInterestMode = state.archiveMode === "interest";
+    elements.archiveModeButtons.forEach((button) => {
+      const active = button.dataset.archiveMode === state.archiveMode;
+      button.classList.toggle("button--active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
+    elements.lectureSearch.disabled = isInterestMode;
+    elements.lectureSearch.placeholder = isInterestMode
+      ? "관심 강좌 보기 중"
+      : "제목·주제 검색";
   }
 
   async function loadLectureDetail(id) {
@@ -365,6 +497,12 @@
     elements.healthRefresh.addEventListener("click", () => checkHealth());
     elements.loginForm.addEventListener("submit", login);
     elements.logout.addEventListener("click", logout);
+    elements.interestForm.addEventListener("submit", saveInterestTags);
+    elements.interestRefresh.addEventListener("click", () => loadInterestSettings());
+    elements.showInterestLectures.addEventListener("click", () => selectArchiveMode("interest"));
+    elements.archiveModeButtons.forEach((button) => {
+      button.addEventListener("click", () => selectArchiveMode(button.dataset.archiveMode));
+    });
     elements.lectureRefresh.addEventListener("click", () => refreshLectures());
     elements.lectureSearch.addEventListener("search", () => refreshLectures());
     elements.lectureSearch.addEventListener("keydown", (event) => {
@@ -375,11 +513,10 @@
     });
 
     if (state.apiBaseUrl) checkHealth({ quiet: true });
-    if (state.token) refreshLectures({ quiet: true });
-    window.setInterval(() => {
-      checkHealth({ quiet: true });
-      if (state.token) refreshLectures({ quiet: true });
-    }, REFRESH_INTERVAL_MS);
+    if (state.token) {
+      refreshLectures({ quiet: true });
+      loadInterestSettings({ quiet: true });
+    }
   }
 
   initialise();
