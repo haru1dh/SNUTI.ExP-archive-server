@@ -112,12 +112,34 @@
         <p class="help">비밀번호는 저장하지 않습니다. access token은 이 브라우저 탭의 session storage에만 유지됩니다.</p>
       </section>
 
+      <section class="panel interest-panel" id="interest-panel" aria-labelledby="interest-title" hidden>
+        <div class="panel-heading panel-heading--wrap">
+          <div>
+            <p class="eyebrow">04 · Interests</p>
+            <h2 id="interest-title">관심 키워드</h2>
+          </div>
+          <button class="button button--ghost" id="interest-refresh" type="button">키워드 새로고침</button>
+        </div>
+        <form id="interest-form">
+          <p class="help" id="interest-copy">로그인한 뒤 관심 키워드를 선택하세요.</p>
+          <div class="interest-tag-list" id="interest-tag-list" aria-live="polite"></div>
+          <div class="interest-actions">
+            <button class="button button--primary" type="submit">관심 키워드 저장</button>
+            <button class="button button--ghost" id="show-interest-lectures" type="button">관심 강좌 보기</button>
+          </div>
+        </form>
+      </section>
+
       <section class="content-layout" aria-label="강연 아카이브">
         <article class="panel lectures-panel">
           <div class="panel-heading panel-heading--wrap">
             <div>
-              <p class="eyebrow">04 · Archive</p>
-              <h2>최근 강연</h2>
+              <p class="eyebrow">05 · Archive</p>
+              <h2>강연 아카이브</h2>
+              <div class="archive-tabs" role="group" aria-label="강연 목록 보기">
+                <button class="button button--ghost archive-mode" data-archive-mode="recent" type="button" aria-pressed="true">최근 강연</button>
+                <button class="button button--ghost archive-mode" data-archive-mode="interest" type="button" aria-pressed="false">관심 강좌</button>
+              </div>
             </div>
             <div class="toolbar">
               <label class="visually-hidden" for="lecture-search">강연 검색</label>
@@ -132,7 +154,7 @@
         <aside class="panel detail-panel" aria-labelledby="detail-title">
           <div class="panel-heading">
             <div>
-              <p class="eyebrow">05 · Detail</p>
+              <p class="eyebrow">06 · Detail</p>
               <h2 id="detail-title">강연 상세</h2>
             </div>
           </div>
