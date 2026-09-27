@@ -11,7 +11,6 @@ import org.springframework.transaction.annotation.Transactional
 class TagService(
     private val tagRepository: TagRepository
 ) {
-
     @Transactional
     fun createTag(request: TagCreateRequest): TagResponse {
         val name = request.name.trim()
@@ -23,20 +22,19 @@ class TagService(
         val tag = tagRepository.findByName(name)
             ?: tagRepository.save(Tag(name = name))
 
-        return TagResponse(
-            id = tag.id!!,
-            name = tag.name
-        )
+        return toTagResponse(tag)
     }
 
     @Transactional(readOnly = true)
     fun getTags(): List<TagResponse> {
-        return tagRepository.findAll()
-            .map {
-                TagResponse(
-                    id = it.id!!,
-                    name = it.name
-                )
-            }
+        return tagRepository.findAllByOrderByNameAsc()
+            .map { tag -> toTagResponse(tag) }
+    }
+
+    private fun toTagResponse(tag: Tag): TagResponse {
+        return TagResponse(
+            id = tag.id!!,
+            name = tag.name
+        )
     }
 }

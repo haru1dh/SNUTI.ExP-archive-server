@@ -9,6 +9,8 @@ import com.snuti.exparchiveserver.lecture.dto.VideoResponse
 import com.snuti.exparchiveserver.lecture.entity.Lecture
 import com.snuti.exparchiveserver.lecture.entity.LectureStatus
 import com.snuti.exparchiveserver.lecture.repository.LectureRepository
+import com.snuti.exparchiveserver.user.repository.UserInterestTagRepository
+import com.snuti.exparchiveserver.user.repository.UserRepository
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Pageable
@@ -19,14 +21,15 @@ import org.springframework.transaction.annotation.Transactional
 @Service
 class LectureQueryService(
     private val lectureRepository: LectureRepository,
-    private val imageStorageService: ImageStorageService
+    private val imageStorageService: ImageStorageService,
+    private val userRepository: UserRepository,
+    private val userInterestTagRepository: UserInterestTagRepository
 ) {
 
     @Transactional(readOnly = true)
     fun getLectures(
         pageable: Pageable
     ): Page<LectureListItemResponse> {
-
         val sortedPageable = createSortedPageable(pageable)
 
         return lectureRepository
@@ -34,9 +37,7 @@ class LectureQueryService(
                 LectureStatus.PUBLISHED,
                 sortedPageable
             )
-            .map { lecture ->
-                toListItemResponse(lecture)
-            }
+            .map { lecture -> toListItemResponse(lecture) }
     }
 
     @Transactional(readOnly = true)
@@ -44,7 +45,6 @@ class LectureQueryService(
         keyword: String,
         pageable: Pageable
     ): Page<LectureListItemResponse> {
-
         val sortedPageable = createSortedPageable(pageable)
 
         return lectureRepository
@@ -53,20 +53,48 @@ class LectureQueryService(
                 keyword,
                 sortedPageable
             )
-            .map { lecture ->
-                toListItemResponse(lecture)
-            }
+            .map { lecture -> toListItemResponse(lecture) }
+    }
+
+    /**
+     * Returns published lectures that share at least one tag with the caller's
+     * saved interest keywords. No interests is a valid empty recommendation set.
+     */
+    @Transactional(readOnly = true)
+    fun getRecommendedLectures(
+        currentUserEmail: String,
+        pageable: Pageable
+    ): Page<LectureListItemResponse> {
+        val user = userRepository.findByEmail(currentUserEmail)
+            ?: throw IllegalArgumentException(
+                "User not found: " + currentUserEmail
+            )
+        val sortedPageable = createSortedPageable(pageable)
+        val interestTagIds = userInterestTagRepository
+            .findAllByUser_IdOrderByTag_NameAsc(user.id!!)
+            .map { interest -> interest.tag.id!! }
+
+        if (interestTagIds.isEmpty()) {
+            return Page.empty(sortedPageable)
+        }
+
+        return lectureRepository
+            .findPublishedByTagIds(
+                status = LectureStatus.PUBLISHED,
+                tagIds = interestTagIds,
+                pageable = sortedPageable
+            )
+            .map { lecture -> toListItemResponse(lecture) }
     }
 
     @Transactional(readOnly = true)
     fun getLectureDetail(
         id: Long
     ): LectureDetailResponse {
-
         val lecture = lectureRepository.findById(id)
             .orElseThrow {
                 IllegalArgumentException(
-                    "Lecture not found: $id"
+                    "Lecture not found: " + id
                 )
             }
 
@@ -79,7 +107,6 @@ class LectureQueryService(
             lecturerName = lecture.lecturerName,
             topic = lecture.topic,
             status = lecture.status,
-
             articles = lecture.articles
                 .sortedBy { it.createdAt }
                 .map { article ->
@@ -88,7 +115,6 @@ class LectureQueryService(
                         imageStorageService
                     )
                 },
-
             videos = lecture.videos
                 .sortedBy { it.createdAt }
                 .map { video ->
@@ -100,7 +126,6 @@ class LectureQueryService(
                         createdAt = video.createdAt
                     )
                 },
-
             tags = toTagResponses(lecture)
         )
     }
