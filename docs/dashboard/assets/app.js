@@ -23,11 +23,16 @@
     searchSummary: document.querySelector("#search-summary"),
     searchList: document.querySelector("#search-lecture-list"),
     searchRefresh: document.querySelector("#search-refresh"),
+    browseTagList: document.querySelector("#browse-tag-list"),
+    browseHelp: document.querySelector("#browse-help"),
+    browseRefresh: document.querySelector("#browse-refresh"),
+    interestOverviewTags: document.querySelector("#interest-selected-tags"),
+    interestOverviewHelp: document.querySelector("#interest-overview-help"),
     interestForm: document.querySelector("#interest-form"),
     interestTagList: document.querySelector("#interest-tag-list"),
     interestHelp: document.querySelector("#interest-help"),
     interestSave: document.querySelector("#interest-save"),
-    interestRefresh: document.querySelector("#interest-refresh"),
+    interestSettingsRefresh: document.querySelector("#interest-settings-refresh"),
     interestLecturesRefresh: document.querySelector("#interest-lectures-refresh"),
     interestSummary: document.querySelector("#interest-summary"),
     interestList: document.querySelector("#interest-lecture-list"),
@@ -39,6 +44,15 @@
     accountEmail: document.querySelector("#account-email"),
     accountRole: document.querySelector("#account-role"),
     logout: document.querySelector("#logout-button"),
+    interestSettingsLink: document.querySelector("#interest-settings-link"),
+    adminPublishLink: document.querySelector("#admin-publish-link"),
+    adminPublishForm: document.querySelector("#admin-publish-form"),
+    adminTagInput: document.querySelector("#admin-tag-input"),
+    adminTagAdd: document.querySelector("#admin-tag-add"),
+    adminTagList: document.querySelector("#admin-tag-list"),
+    adminTagCount: document.querySelector("#admin-tag-count"),
+    adminTagHelp: document.querySelector("#admin-tag-help"),
+    adminPublishSubmit: document.querySelector("#admin-publish-submit"),
     swaggerLink: document.querySelector("#swagger-link"),
     apiForm: document.querySelector("#api-config-form"),
     apiInput: document.querySelector("#api-base-url"),
@@ -68,6 +82,10 @@
     recommendedLectures: [],
     availableTags: [],
     interestTagIds: new Set(),
+    browseTagId: null,
+    browseTagName: "",
+    browseLectures: [],
+    adminTagNames: new Set(),
     backendRevision: "",
     lastHomeRefresh: null,
     refreshTimer: null
@@ -164,6 +182,8 @@
       elements.accountEmail.textContent = state.email || "로그인한 사용자";
       elements.accountRole.textContent = state.role === "ADMIN" ? "관리자 계정" : "일반 사용자";
     }
+    elements.interestSettingsLink.hidden = !signedIn;
+    elements.adminPublishLink.hidden = !signedIn || state.role !== "ADMIN";
     elements.swaggerLink.hidden = !state.apiBaseUrl || !signedIn;
   }
 
@@ -173,13 +193,18 @@
       return;
     }
     state.activeView = nextView;
+    const navigationView = nextView === "interest-settings"
+      ? "interests"
+      : nextView === "admin-publish"
+        ? "account"
+        : nextView;
     elements.views.forEach((view) => {
       const active = view.dataset.view === nextView;
       view.hidden = !active;
       view.classList.toggle("view--active", active);
     });
     elements.navButtons.forEach((button) => {
-      const active = button.dataset.viewTarget === nextView;
+      const active = button.dataset.viewTarget === navigationView;
       button.classList.toggle("nav-button--active", active);
       if (active) button.setAttribute("aria-current", "page");
       else button.removeAttribute("aria-current");
@@ -190,13 +215,31 @@
 
   async function loadActiveView({ quiet = false } = {}) {
     if (state.activeView === "home") return loadRecentLectures({ quiet });
-    if (state.activeView === "search") return runSearch({ quiet });
+    if (state.activeView === "search") {
+      return Promise.all([loadBrowseTags({ quiet }), runSearch({ quiet })]);
+    }
     if (state.activeView === "interests") {
       if (!isSignedIn()) {
         renderInterestSignedOut();
         return;
       }
-      await Promise.all([loadInterestSettings({ quiet }), loadRecommendedLectures({ quiet })]);
+      return Promise.all([loadInterestOverview({ quiet }), loadRecommendedLectures({ quiet })]);
+    }
+    if (state.activeView === "interest-settings") {
+      if (!isSignedIn()) {
+        renderInterestSignedOut();
+        switchView("account");
+        return;
+      }
+      return loadInterestSettings({ quiet });
+    }
+    if (state.activeView === "admin-publish") {
+      if (!isSignedIn() || state.role !== "ADMIN") {
+        showToast("강좌 게시 화면은 관리자 계정에서만 사용할 수 있습니다.", true);
+        switchView("account");
+        return;
+      }
+      return loadAdminTags({ quiet });
     }
   }
 
@@ -278,6 +321,59 @@
     }
   }
 
+  async function loadBrowseTags({ quiet = false } = {}) {
+    if (!isSignedIn()) {
+      elements.browseTagList.innerHTML = "";
+      elements.browseHelp.textContent = "로그인하면 키워드별로 공개 강연을 탐색할 수 있습니다.";
+      return;
+    }
+    if (!state.apiBaseUrl) {
+      elements.browseTagList.innerHTML = "";
+      elements.browseHelp.textContent = "내 정보에서 Cloud Run API 주소를 저장하세요.";
+      return;
+    }
+    try {
+      const tags = await request("/tags", { headers: headers(true) });
+      state.availableTags = Array.isArray(tags) ? tags : [];
+      renderBrowseTags();
+    } catch (error) {
+      elements.browseHelp.textContent = "키워드 목록을 불러오지 못했습니다.";
+      handleRequestError(error, "키워드 목록을 불러오지 못했습니다.", quiet);
+    }
+  }
+
+  function renderBrowseTags() {
+    if (!state.availableTags.length) {
+      elements.browseTagList.innerHTML = '<p class="empty-state">등록된 키워드가 아직 없습니다.</p>';
+      elements.browseHelp.textContent = "관리자가 강좌를 등록하면서 키워드를 추가하면 여기에서 탐색할 수 있습니다.";
+      return;
+    }
+    const allSelected = !state.browseTagId;
+    const allButton = '<button class="keyword-browse-chip' + (allSelected ? ' keyword-browse-chip--selected' : '')
+      + '" type="button" data-browse-tag-id="" aria-pressed="' + allSelected + '">전체</button>';
+    const tagButtons = state.availableTags.map((tag) => {
+      const id = Number(tag.id);
+      const selected = id === state.browseTagId;
+      return '<button class="keyword-browse-chip' + (selected ? ' keyword-browse-chip--selected' : '')
+        + '" type="button" data-browse-tag-id="' + id + '" aria-pressed="' + selected + '">#'
+        + escapeHtml(tag.name || "") + '</button>';
+    }).join("");
+    elements.browseTagList.innerHTML = allButton + tagButtons;
+    elements.browseHelp.textContent = state.browseTagId
+      ? "#" + state.browseTagName + " 키워드의 공개 강연만 보고 있습니다."
+      : "키워드를 누르면 그 주제의 공개 강연만 볼 수 있습니다.";
+  }
+
+  function selectBrowseTag(value) {
+    const id = Number(value);
+    state.browseTagId = Number.isFinite(id) && id > 0 ? id : null;
+    const tag = state.availableTags.find((item) => Number(item.id) === state.browseTagId);
+    state.browseTagName = tag?.name || "";
+    elements.searchInput.value = "";
+    renderBrowseTags();
+    runSearch();
+  }
+
   async function runSearch({ quiet = false } = {}) {
     const keyword = elements.searchInput.value.trim();
     if (!isSignedIn()) {
@@ -291,18 +387,31 @@
       return;
     }
 
-    elements.searchSummary.textContent = keyword ? "검색 중…" : "최근 강연 불러오는 중…";
+    const browsingTag = !keyword && state.browseTagId;
+    elements.searchSummary.textContent = keyword
+      ? "검색 중…"
+      : browsingTag
+        ? "#" + state.browseTagName + " 강연을 불러오는 중…"
+        : "최근 강연 불러오는 중…";
     try {
       const endpoint = keyword
         ? "/lectures/search?keyword=" + encodeURIComponent(keyword) + "&page=0&size=20"
-        : "/lectures?page=0&size=20";
+        : browsingTag
+          ? "/lectures/by-tag?tagId=" + encodeURIComponent(state.browseTagId) + "&page=0&size=20"
+          : "/lectures?page=0&size=20";
       const page = await request(endpoint, { headers: headers(true) });
       state.searchLectures = pageContent(page);
       const count = pageTotal(page, state.searchLectures.length);
       elements.searchSummary.textContent = keyword
-        ? '“' + keyword + '” 검색 결과 ' + count + "개"
-        : "최근 공개 강연 " + count + "개";
-      renderLectureFeed(elements.searchList, state.searchLectures, keyword ? "검색 결과가 없습니다." : "강연이 없습니다.");
+        ? "“" + keyword + "” 검색 결과 " + count + "개"
+        : browsingTag
+          ? "#" + state.browseTagName + " 강좌 " + count + "개"
+          : "최근 공개 강연 " + count + "개";
+      renderLectureFeed(
+        elements.searchList,
+        state.searchLectures,
+        keyword ? "검색 결과가 없습니다." : browsingTag ? "이 키워드의 공개 강연이 없습니다." : "강연이 없습니다."
+      );
     } catch (error) {
       handleRequestError(error, "강연 검색에 실패했습니다.", quiet);
       renderEmpty(elements.searchList, "강연을 불러오지 못했습니다.", "account");
@@ -328,13 +437,39 @@
       state.availableTags = Array.isArray(tags) ? tags : [];
       state.interestTagIds = new Set((Array.isArray(interests) ? interests : []).map((tag) => Number(tag.id)));
       renderInterestTags();
+      renderInterestOverview();
     } catch (error) {
       handleRequestError(error, "관심 키워드를 불러오지 못했습니다.", quiet);
     }
   }
 
+  async function loadInterestOverview({ quiet = false } = {}) {
+    await loadInterestSettings({ quiet });
+    renderInterestOverview();
+  }
+
+  function renderInterestOverview() {
+    if (!isSignedIn()) {
+      elements.interestOverviewTags.innerHTML = "";
+      elements.interestOverviewHelp.textContent = "로그인하면 내 관심 강좌를 설정할 수 있습니다.";
+      return;
+    }
+    const selected = state.availableTags.filter((tag) => state.interestTagIds.has(Number(tag.id)));
+    if (!selected.length) {
+      elements.interestOverviewTags.innerHTML = '<p class="empty-state">아직 고른 키워드가 없습니다.</p>';
+      elements.interestOverviewHelp.textContent = "내 정보 → 관심 강좌 설정에서 관심 주제를 선택하세요.";
+      return;
+    }
+    elements.interestOverviewTags.innerHTML = selected
+      .map((tag) => '<span class="selected-keyword">#' + escapeHtml(tag.name || "") + '</span>')
+      .join("");
+    elements.interestOverviewHelp.textContent = "선택한 " + selected.length + "개 키워드에 맞는 공개 강연을 추천합니다.";
+  }
+
   function renderInterestSignedOut() {
     elements.interestTagList.innerHTML = "";
+    elements.interestOverviewTags.innerHTML = "";
+    elements.interestOverviewHelp.textContent = "로그인하면 내 관심 강좌를 설정할 수 있습니다.";
     elements.interestHelp.textContent = "관심 키워드를 저장하려면 로그인하세요.";
     elements.interestSave.disabled = true;
     elements.interestSummary.textContent = "로그인이 필요합니다";
@@ -381,6 +516,7 @@
       });
       state.interestTagIds = new Set((Array.isArray(saved) ? saved : []).map((tag) => Number(tag.id)));
       renderInterestTags();
+      renderInterestOverview();
       showToast("관심 키워드를 저장했습니다.");
       await loadRecommendedLectures({ quiet: true });
     } catch (error) {
@@ -411,6 +547,144 @@
     } catch (error) {
       handleRequestError(error, "관심 강좌를 불러오지 못했습니다.", quiet);
       renderEmpty(elements.interestList, "관심 강좌를 불러오지 못했습니다.", "account");
+    }
+  }
+
+  async function loadAdminTags({ quiet = false } = {}) {
+    if (!state.apiBaseUrl) {
+      elements.adminTagList.innerHTML = "";
+      elements.adminTagHelp.textContent = "내 정보에서 Cloud Run API 주소를 저장하세요.";
+      return;
+    }
+    try {
+      const tags = await request("/admin/tags", { headers: headers(true) });
+      state.availableTags = Array.isArray(tags) ? tags : [];
+      renderAdminTags();
+    } catch (error) {
+      handleRequestError(error, "관리자 키워드 목록을 불러오지 못했습니다.", quiet);
+    }
+  }
+
+  function renderAdminTags() {
+    const selectedCount = state.adminTagNames.size;
+    elements.adminTagCount.textContent = selectedCount + " / 10";
+    if (!state.availableTags.length && !selectedCount) {
+      elements.adminTagList.innerHTML = '<p class="empty-state">아직 등록된 키워드가 없습니다. 위 입력칸에 새 키워드를 추가하세요.</p>';
+      elements.adminTagHelp.textContent = "첫 강좌의 키워드는 여기에서 바로 만들 수 있습니다.";
+      return;
+    }
+    const existingNames = new Set(state.availableTags.map((tag) => String(tag.name || "")));
+    const selectedNew = [...state.adminTagNames]
+      .filter((name) => !existingNames.has(name))
+      .map((name) => ({ name }));
+    const allTags = [...state.availableTags, ...selectedNew];
+    elements.adminTagList.innerHTML = allTags.map((tag) => {
+      const name = String(tag.name || "");
+      const selected = state.adminTagNames.has(name);
+      return '<button class="keyword-browse-chip keyword-browse-chip--admin' + (selected ? ' keyword-browse-chip--selected' : '')
+        + '" type="button" data-admin-tag-name="' + escapeAttribute(name) + '" aria-pressed="' + selected + '">#'
+        + escapeHtml(name) + '</button>';
+    }).join("");
+    elements.adminTagHelp.textContent = selectedCount
+      ? "선택한 " + selectedCount + "개 키워드가 강좌와 함께 저장됩니다."
+      : "강좌와 연결할 키워드를 하나 이상 선택하거나 새로 추가하세요.";
+  }
+
+  function normaliseKeyword(value) {
+    return String(value || "").replace(/^#+/, "").replace(/\s+/g, " ").trim();
+  }
+
+  async function addAdminKeywords({ quiet = false } = {}) {
+    const raw = elements.adminTagInput.value;
+    const names = raw.split(",").map(normaliseKeyword).filter(Boolean);
+    elements.adminTagInput.value = "";
+    if (!names.length) return true;
+    const uniqueNames = [...new Set(names)];
+    if (state.adminTagNames.size + uniqueNames.filter((name) => !state.adminTagNames.has(name)).length > 10) {
+      showToast("강좌당 키워드는 최대 10개까지 선택할 수 있습니다.", true);
+      return false;
+    }
+    try {
+      for (const name of uniqueNames) {
+        const existing = state.availableTags.find((tag) => String(tag.name || "") === name);
+        if (!existing) {
+          const created = await request("/admin/tags", {
+            method: "POST",
+            headers: { ...headers(true), "Content-Type": "application/json" },
+            body: JSON.stringify({ name })
+          });
+          state.availableTags.push(created);
+        }
+        state.adminTagNames.add(name);
+      }
+      renderAdminTags();
+      return true;
+    } catch (error) {
+      handleRequestError(error, "키워드 추가에 실패했습니다.", quiet);
+      return false;
+    }
+  }
+
+  function toggleAdminKeyword(name) {
+    const normalized = normaliseKeyword(name);
+    if (!normalized) return;
+    if (state.adminTagNames.has(normalized)) {
+      state.adminTagNames.delete(normalized);
+    } else if (state.adminTagNames.size >= 10) {
+      showToast("강좌당 키워드는 최대 10개까지 선택할 수 있습니다.", true);
+      return;
+    } else {
+      state.adminTagNames.add(normalized);
+    }
+    renderAdminTags();
+  }
+
+  async function publishLecture(event) {
+    event.preventDefault();
+    if (!isSignedIn() || state.role !== "ADMIN") {
+      showToast("강좌 게시에는 관리자 권한이 필요합니다.", true);
+      switchView("account");
+      return;
+    }
+    const added = await addAdminKeywords({ quiet: false });
+    if (!added) return;
+    const form = elements.adminPublishForm;
+    const payload = {
+      title: form.elements.title.value.trim(),
+      lectureDate: form.elements.lectureDate.value,
+      location: form.elements.location.value.trim() || null,
+      lectureSummary: form.elements.lectureSummary.value.trim() || null,
+      lecturerName: form.elements.lecturerName.value.trim() || null,
+      topic: form.elements.topic.value.trim() || null,
+      status: form.elements.status.value,
+      tags: [...state.adminTagNames]
+    };
+    if (!payload.title || !payload.lectureDate) {
+      showToast("강좌 제목과 일시는 꼭 입력하세요.", true);
+      return;
+    }
+    elements.adminPublishSubmit.disabled = true;
+    try {
+      const lecture = await request("/admin/lectures", {
+        method: "POST",
+        headers: { ...headers(true), "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      form.reset();
+      state.adminTagNames = new Set();
+      await Promise.all([
+        loadAdminTags({ quiet: true }),
+        loadBrowseTags({ quiet: true }),
+        loadInterestSettings({ quiet: true }),
+        loadRecentLectures({ quiet: true })
+      ]);
+      showToast(lecture?.status === "DRAFT"
+        ? "강좌를 초안으로 저장했습니다. 일반 사용자에게는 보이지 않습니다."
+        : "강좌를 공개하고 키워드를 연결했습니다.");
+    } catch (error) {
+      handleRequestError(error, "강좌 게시에 실패했습니다.", false);
+    } finally {
+      elements.adminPublishSubmit.disabled = false;
     }
   }
 
@@ -539,7 +813,8 @@
         checkHealth({ quiet: true }),
         loadBackendRelease({ quiet: true }),
         loadRecentLectures({ quiet: true }),
-        loadInterestSettings({ quiet: true })
+        loadInterestSettings({ quiet: true }),
+        loadBrowseTags({ quiet: true })
       ]);
       switchView("home");
     } catch (error) {
@@ -556,6 +831,10 @@
     state.recommendedLectures = [];
     state.availableTags = [];
     state.interestTagIds = new Set();
+    state.browseTagId = null;
+    state.browseTagName = "";
+    state.browseLectures = [];
+    state.adminTagNames = new Set();
     sessionStorage.removeItem(TOKEN_KEY);
     sessionStorage.removeItem(EMAIL_KEY);
     updateConfigurationUi();
@@ -607,10 +886,14 @@
   }
 
   function handleRequestError(error, fallback, quiet) {
-    if (Number(error?.status) === 401 || Number(error?.status) === 403) {
+    if (Number(error?.status) === 401) {
       logout({ quiet: true });
       switchView("account");
-      if (!quiet) showToast("로그인 시간이 만료되었거나 권한이 없습니다. 다시 로그인하세요.", true);
+      if (!quiet) showToast("로그인 시간이 만료되었습니다. 다시 로그인하세요.", true);
+      return;
+    }
+    if (Number(error?.status) === 403) {
+      if (!quiet) showToast("이 작업은 관리자 권한이 필요하거나 접근이 허용되지 않았습니다.", true);
       return;
     }
     if (!quiet) showToast(fallback + " " + toErrorMessage(error), true);
@@ -690,6 +973,18 @@
 
   function bindEvents() {
     document.addEventListener("click", (event) => {
+      const browseTag = event.target.closest("[data-browse-tag-id]");
+      if (browseTag) {
+        event.preventDefault();
+        selectBrowseTag(browseTag.dataset.browseTagId);
+        return;
+      }
+      const adminTag = event.target.closest("[data-admin-tag-name]");
+      if (adminTag) {
+        event.preventDefault();
+        toggleAdminKeyword(adminTag.dataset.adminTagName);
+        return;
+      }
       const viewButton = event.target.closest("[data-view-target]");
       if (viewButton) {
         event.preventDefault();
@@ -705,13 +1000,29 @@
       event.preventDefault();
       runSearch();
     });
+    elements.searchInput.addEventListener("input", () => {
+      if (elements.searchInput.value.trim() && state.browseTagId) {
+        state.browseTagId = null;
+        state.browseTagName = "";
+        renderBrowseTags();
+      }
+    });
     elements.searchInput.addEventListener("search", () => runSearch({ quiet: true }));
     elements.searchRefresh.addEventListener("click", () => runSearch());
+    elements.browseRefresh.addEventListener("click", () => loadBrowseTags());
     elements.interestForm.addEventListener("submit", saveInterestSettings);
-    elements.interestRefresh.addEventListener("click", () => loadInterestSettings());
+    elements.interestSettingsRefresh.addEventListener("click", () => loadInterestSettings());
     elements.interestLecturesRefresh.addEventListener("click", () => loadRecommendedLectures());
     elements.loginForm.addEventListener("submit", login);
     elements.logout.addEventListener("click", () => logout());
+    elements.adminTagAdd.addEventListener("click", () => addAdminKeywords());
+    elements.adminTagInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        addAdminKeywords();
+      }
+    });
+    elements.adminPublishForm.addEventListener("submit", publishLecture);
     elements.apiForm.addEventListener("submit", saveApiUrl);
     elements.healthRefresh.addEventListener("click", () => {
       checkHealth();

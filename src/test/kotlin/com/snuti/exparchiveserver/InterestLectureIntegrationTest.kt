@@ -136,6 +136,51 @@ constructor(
     }
 
     @Test
+    fun `should browse only published lectures for a selected keyword`() {
+        val drugDiscovery = tagRepository.save(Tag(name = "신약개발"))
+        val artificialIntelligence = tagRepository.save(Tag(name = "인공지능"))
+
+        val publishedDrugLecture = lectureRepository.save(
+            createLecture(
+                title = "신약개발 공개 특강",
+                status = LectureStatus.PUBLISHED
+            )
+        )
+        val draftDrugLecture = lectureRepository.save(
+            createLecture(
+                title = "신약개발 내부 초안",
+                status = LectureStatus.DRAFT
+            )
+        )
+        val publishedAiLecture = lectureRepository.save(
+            createLecture(
+                title = "인공지능 공개 특강",
+                status = LectureStatus.PUBLISHED
+            )
+        )
+
+        lectureTagRepository.saveAll(
+            listOf(
+                LectureTag(publishedDrugLecture, drugDiscovery),
+                LectureTag(draftDrugLecture, drugDiscovery),
+                LectureTag(publishedAiLecture, artificialIntelligence)
+            )
+        )
+
+        mvc.perform(
+            get("/lectures/by-tag")
+                .header("Authorization", "Bearer " + userToken)
+                .param("tagId", drugDiscovery.id.toString())
+                .param("page", "0")
+                .param("size", "20")
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.totalElements").value(1))
+            .andExpect(jsonPath("$.content[0].id").value(publishedDrugLecture.id))
+            .andExpect(jsonPath("$.content[0].title").value("신약개발 공개 특강"))
+    }
+
+    @Test
     fun `should return an empty recommendation page when no interests are selected`() {
         mvc.perform(
             get("/lectures/recommended")

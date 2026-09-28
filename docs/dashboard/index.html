@@ -68,7 +68,18 @@
                 <input id="lecture-search" type="search" inputmode="search" autocomplete="off" placeholder="제목으로 검색">
                 <button type="submit" aria-label="검색">⌕</button>
               </form>
-              <p class="inline-help">현재 서버는 강연 제목으로 검색합니다.</p>
+              <p class="inline-help">제목 검색과 키워드별 공개 강연 탐색을 지원합니다.</p>
+              <section class="category-browser" aria-live="polite">
+                <div class="section-heading section-heading--tight">
+                  <div>
+                    <p class="eyebrow">TOPIC BROWSE</p>
+                    <h2>키워드로 둘러보기</h2>
+                  </div>
+                  <button class="text-button" id="browse-refresh" type="button">갱신</button>
+                </div>
+                <div class="keyword-list keyword-list--browse" id="browse-tag-list"></div>
+                <p class="inline-help" id="browse-help">로그인하면 키워드별로 공개 강연을 탐색할 수 있습니다.</p>
+              </section>
               <div class="section-heading section-heading--tight">
                 <div>
                   <p class="eyebrow">RESULTS</p>
@@ -88,15 +99,12 @@
                 <div class="section-heading section-heading--tight">
                   <div>
                     <p class="eyebrow">MY KEYWORDS</p>
-                    <h2>어떤 주제가 궁금한가요?</h2>
+                    <h2>내가 고른 관심 주제</h2>
                   </div>
-                  <button class="text-button" id="interest-refresh" type="button">갱신</button>
+                  <button class="text-button" type="button" data-view-target="interest-settings">설정</button>
                 </div>
-                <form id="interest-form">
-                  <div class="keyword-list" id="interest-tag-list"></div>
-                  <p class="inline-help" id="interest-help">로그인하면 키워드를 선택할 수 있습니다.</p>
-                  <button class="primary-button" type="submit" id="interest-save">관심 키워드 저장</button>
-                </form>
+                <div class="keyword-list keyword-list--selected" id="interest-selected-tags"></div>
+                <p class="inline-help" id="interest-overview-help">내 정보에서 관심 강좌 설정을 열어 키워드를 선택하세요.</p>
               </section>
 
               <div class="section-heading">
@@ -107,6 +115,89 @@
                 <button class="text-button" id="interest-lectures-refresh" type="button">새로고침</button>
               </div>
               <div class="lecture-feed" id="interest-lecture-list" aria-live="polite"></div>
+            </section>
+
+
+            <section class="view" id="view-interest-settings" data-view="interest-settings" aria-labelledby="interest-settings-title" hidden>
+              <button class="back-link" type="button" data-view-target="account">← 내 정보</button>
+              <p class="eyebrow">MY ARCHIVE · SETTINGS</p>
+              <h1 id="interest-settings-title">관심 강좌<br><em>설정하기</em></h1>
+              <p class="intro">관심 있는 키워드를 고르면 같은 주제의 공개 강연을 추천합니다. 선택 내용은 내 서버 계정에 저장됩니다.</p>
+
+              <section class="interest-box" aria-live="polite">
+                <div class="section-heading section-heading--tight">
+                  <div>
+                    <p class="eyebrow">SELECT KEYWORDS</p>
+                    <h2>관심 있는 분야를 선택하세요</h2>
+                  </div>
+                  <button class="text-button" id="interest-settings-refresh" type="button">갱신</button>
+                </div>
+                <form id="interest-form">
+                  <div class="keyword-list" id="interest-tag-list"></div>
+                  <p class="inline-help" id="interest-help">로그인하면 키워드를 선택할 수 있습니다.</p>
+                  <button class="primary-button" type="submit" id="interest-save">관심 강좌 저장</button>
+                </form>
+              </section>
+            </section>
+
+            <section class="view" id="view-admin-publish" data-view="admin-publish" aria-labelledby="admin-publish-title" hidden>
+              <button class="back-link" type="button" data-view-target="account">← 내 정보</button>
+              <p class="eyebrow">ADMIN · COURSE PUBLISH</p>
+              <h1 id="admin-publish-title">새 강좌<br><em>게시하기</em></h1>
+              <p class="intro">게시할 강좌의 키워드를 입력하거나 선택하세요. 새 키워드는 서버에 등록되어 관심 강좌와 탐색에 바로 쓰입니다.</p>
+
+              <form class="admin-publish-form" id="admin-publish-form">
+                <label>
+                  강좌 제목 <span aria-hidden="true">*</span>
+                  <input name="title" type="text" maxlength="255" required placeholder="예: 신약개발의 최신 동향">
+                </label>
+                <label>
+                  일시 <span aria-hidden="true">*</span>
+                  <input name="lectureDate" type="datetime-local" required>
+                </label>
+                <label>
+                  장소
+                  <input name="location" type="text" maxlength="255" placeholder="예: 302동 105호">
+                </label>
+                <label>
+                  연사
+                  <input name="lecturerName" type="text" maxlength="255" placeholder="예: 홍길동 교수">
+                </label>
+                <label>
+                  주제
+                  <input name="topic" type="text" maxlength="255" placeholder="예: 바이오·의약">
+                </label>
+                <label>
+                  강좌 소개
+                  <textarea name="lectureSummary" rows="4" maxlength="5000" placeholder="강좌 내용을 짧게 소개해 주세요."></textarea>
+                </label>
+                <label>
+                  공개 상태
+                  <select name="status">
+                    <option value="PUBLISHED" selected>바로 공개</option>
+                    <option value="DRAFT">초안으로 저장</option>
+                  </select>
+                </label>
+
+                <section class="admin-keyword-box" aria-live="polite">
+                  <div class="section-heading section-heading--tight">
+                    <div>
+                      <p class="eyebrow">COURSE KEYWORDS</p>
+                      <h2>키워드</h2>
+                    </div>
+                    <span class="keyword-count" id="admin-tag-count">0 / 10</span>
+                  </div>
+                  <div class="tag-add-row">
+                    <input id="admin-tag-input" type="text" maxlength="100" placeholder="예: 신약개발">
+                    <button class="secondary-button" id="admin-tag-add" type="button">추가</button>
+                  </div>
+                  <p class="inline-help">쉼표로 여러 개를 입력할 수 있습니다. 기존 키워드를 누르면 선택·해제됩니다.</p>
+                  <div class="keyword-list keyword-list--admin" id="admin-tag-list"></div>
+                  <p class="inline-help" id="admin-tag-help">선택한 키워드는 이 강좌와 함께 저장됩니다.</p>
+                </section>
+
+                <button class="primary-button" id="admin-publish-submit" type="submit">강좌 게시</button>
+              </form>
             </section>
 
             <section class="view" id="view-account" data-view="account" aria-labelledby="account-title" hidden>
@@ -140,6 +231,16 @@
                   <button class="text-button" id="logout-button" type="button">로그아웃</button>
                 </div>
                 <p>관심 키워드와 강연 목록은 서버 계정 기준으로 저장됩니다.</p>
+                <div class="account-action-list">
+                  <button class="settings-link" id="interest-settings-link" type="button" data-view-target="interest-settings" hidden>
+                    <span><strong>관심 강좌 설정</strong><small>키워드를 골라 맞춤 강좌를 받으세요</small></span>
+                    <span aria-hidden="true">→</span>
+                  </button>
+                  <button class="settings-link settings-link--admin" id="admin-publish-link" type="button" data-view-target="admin-publish" hidden>
+                    <span><strong>새 강좌 게시</strong><small>강좌와 키워드를 함께 등록합니다</small></span>
+                    <span aria-hidden="true">→</span>
+                  </button>
+                </div>
                 <a class="admin-link" id="swagger-link" href="#" target="_blank" rel="noreferrer" hidden>관리자 API · Swagger 열기 ↗</a>
               </section>
 

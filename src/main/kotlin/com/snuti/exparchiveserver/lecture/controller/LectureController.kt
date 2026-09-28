@@ -37,6 +37,15 @@ class LectureController(
         return lectureQueryService.getRecommendedLectures(email, pageable)
     }
 
+    @Operation(summary = "키워드별 공개 강연 조회")
+    @GetMapping("/by-tag")
+    fun getLecturesByTag(
+        @RequestParam tagId: Long,
+        @PageableDefault(size = 20) pageable: Pageable
+    ): Page<LectureListItemResponse> {
+        return lectureQueryService.getLecturesByTag(tagId, pageable)
+    }
+
     @GetMapping("/search")
     fun searchLectures(
         @RequestParam keyword: String,
