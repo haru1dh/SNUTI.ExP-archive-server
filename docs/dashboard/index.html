@@ -2,174 +2,217 @@
 <html lang="ko">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="SNUTI ExP Archive Server의 상태와 강연 데이터를 확인하는 실시간 대시보드">
-    <title>SNUTI ExP Archive · Live Console</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#101925">
+    <meta
+      name="description"
+      content="SNUTI ExP Archive의 실제 API 데이터를 휴대폰 앱 화면으로 확인하는 라이브 웹 앱"
+    >
+    <title>SNUTI ExP Archive</title>
     <link rel="stylesheet" href="assets/styles.css">
     <script src="api-config.js"></script>
+    <script src="deploy-meta.js"></script>
     <script src="assets/app.js" defer></script>
   </head>
   <body>
-    <a class="skip-link" href="#main-content">본문으로 건너뛰기</a>
+    <a class="skip-link" href="#app-main">본문으로 건너뛰기</a>
 
-    <header class="site-header">
-      <div>
-        <p class="eyebrow">SNUTI · ExP Archive</p>
-        <h1>Live Console</h1>
-        <p class="lede">서버 상태를 30초마다 확인하고, 로그인한 계정의 강연 아카이브를 바로 살펴봅니다.</p>
-      </div>
-      <div class="connection-chip" id="connection-chip" aria-live="polite">
-        <span class="status-dot status-dot--neutral"></span>
-        <span>연결 대상 설정 필요</span>
-      </div>
-    </header>
+    <main class="preview-stage">
+      <section class="phone" aria-label="SNUTI ExP Archive 휴대폰 앱 미리보기">
+        <div class="phone__speaker" aria-hidden="true"></div>
+        <div class="app-shell">
+          <header class="app-header">
+            <a class="brand" href="#home" aria-label="SNUTI ExP Archive 홈">
+              <span class="brand__mark">ExP</span>
+              <span>
+                <strong>SNUTI</strong>
+                <small>ARCHIVE</small>
+              </span>
+            </a>
+            <button class="connection-indicator" id="connection-indicator" type="button" data-view-target="account" aria-label="서버 연결 정보 열기">
+              <span class="status-dot status-dot--neutral"></span>
+              <span id="connection-label">연결 확인 중</span>
+            </button>
+          </header>
 
-    <main id="main-content">
-      <section class="dashboard-grid" aria-label="서버 연결 설정과 상태">
-        <article class="panel panel--settings">
-          <div class="panel-heading">
-            <div>
-              <p class="eyebrow">01 · Connection</p>
-              <h2>API 연결</h2>
-            </div>
-          </div>
-          <form id="api-config-form" class="stack">
-            <label for="api-base-url">Cloud Run API 주소</label>
-            <div class="input-row">
-              <input
-                id="api-base-url"
-                name="apiBaseUrl"
-                type="url"
-                inputmode="url"
-                placeholder="https://your-service-xxxxx-an.a.run.app"
-                autocomplete="url"
-                required
-              >
-              <button class="button button--primary" type="submit">저장 · 확인</button>
-            </div>
-            <p class="help">API URL은 공개 정보입니다. 비밀번호, JWT secret, DB 주소는 절대 입력하지 마세요.</p>
-          </form>
-          <dl class="facts">
-            <div>
-              <dt>Health endpoint</dt>
-              <dd id="health-endpoint">설정 전</dd>
-            </div>
-            <div>
-              <dt>자동 새로고침</dt>
-              <dd>30초</dd>
-            </div>
-          </dl>
-        </article>
+          <main class="app-main" id="app-main">
+            <section class="view view--active" id="view-home" data-view="home" aria-labelledby="home-title">
+              <p class="eyebrow">SNU · Technology &amp; Innovation</p>
+              <h1 id="home-title">오늘의<br><em>지식 아카이브</em></h1>
+              <p class="intro" id="home-intro">공개 강연과 아티클을 한곳에서 찾아보세요.</p>
 
-        <article class="panel panel--status">
-          <div class="panel-heading">
-            <div>
-              <p class="eyebrow">02 · Health</p>
-              <h2>서버 상태</h2>
-            </div>
-            <button class="icon-button" id="health-refresh" type="button" aria-label="서버 상태 새로고침">↻</button>
-          </div>
-          <div class="health-state" id="health-state" aria-live="polite">
-            <span class="status-dot status-dot--neutral"></span>
-            <strong>대기 중</strong>
-          </div>
-          <p class="status-copy" id="health-copy">Cloud Run API 주소를 설정하면 상태를 확인합니다.</p>
-          <dl class="facts">
-            <div>
-              <dt>마지막 확인</dt>
-              <dd id="health-checked-at">—</dd>
-            </div>
-            <div>
-              <dt>응답 시간</dt>
-              <dd id="health-latency">—</dd>
-            </div>
-          </dl>
-        </article>
-      </section>
+              <section class="live-card" aria-live="polite">
+                <div class="live-card__topline">
+                  <span class="live-pill"><span class="pulse-dot"></span> LIVE DATA</span>
+                  <button class="text-button" id="home-refresh" type="button">새로고침</button>
+                </div>
+                <strong id="home-status">강연을 불러올 준비가 되었습니다.</strong>
+                <span id="home-updated-at">로그인 후 실제 데이터를 표시합니다.</span>
+              </section>
 
-      <section class="panel auth-panel" aria-labelledby="auth-title">
-        <div class="panel-heading">
-          <div>
-            <p class="eyebrow">03 · Session</p>
-            <h2 id="auth-title">로그인</h2>
-          </div>
-          <span class="session-label" id="session-label">로그인하지 않음</span>
-        </div>
-        <form class="auth-form" id="login-form">
-          <label>
-            이메일
-            <input id="email" name="email" type="email" autocomplete="email" required placeholder="name@example.com">
-          </label>
-          <label>
-            비밀번호
-            <input id="password" name="password" type="password" autocomplete="current-password" required>
-          </label>
-          <div class="auth-actions">
-            <button class="button button--primary" type="submit">로그인 후 강연 불러오기</button>
-            <button class="button button--ghost" id="logout-button" type="button" hidden>로그아웃</button>
-          </div>
-        </form>
-        <p class="help">비밀번호는 저장하지 않습니다. access token은 이 브라우저 탭의 session storage에만 유지됩니다.</p>
-      </section>
-
-      <section class="panel interest-panel" id="interest-panel" aria-labelledby="interest-title" hidden>
-        <div class="panel-heading panel-heading--wrap">
-          <div>
-            <p class="eyebrow">04 · Interests</p>
-            <h2 id="interest-title">관심 키워드</h2>
-          </div>
-          <button class="button button--ghost" id="interest-refresh" type="button">키워드 새로고침</button>
-        </div>
-        <form id="interest-form">
-          <p class="help" id="interest-copy">로그인한 뒤 관심 키워드를 선택하세요.</p>
-          <div class="interest-tag-list" id="interest-tag-list" aria-live="polite"></div>
-          <div class="interest-actions">
-            <button class="button button--primary" type="submit">관심 키워드 저장</button>
-            <button class="button button--ghost" id="show-interest-lectures" type="button">관심 강좌 보기</button>
-          </div>
-        </form>
-      </section>
-
-      <section class="content-layout" aria-label="강연 아카이브">
-        <article class="panel lectures-panel">
-          <div class="panel-heading panel-heading--wrap">
-            <div>
-              <p class="eyebrow">05 · Archive</p>
-              <h2>강연 아카이브</h2>
-              <div class="archive-tabs" role="group" aria-label="강연 목록 보기">
-                <button class="button button--ghost archive-mode" data-archive-mode="recent" type="button" aria-pressed="true">최근 강연</button>
-                <button class="button button--ghost archive-mode" data-archive-mode="interest" type="button" aria-pressed="false">관심 강좌</button>
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">RECENT ARCHIVE</p>
+                  <h2>최근 강연</h2>
+                </div>
+                <button class="text-button" type="button" data-view-target="search">전체 보기</button>
               </div>
-            </div>
-            <div class="toolbar">
-              <label class="visually-hidden" for="lecture-search">강연 검색</label>
-              <input id="lecture-search" type="search" placeholder="제목·주제 검색">
-              <button class="button button--ghost" id="lecture-refresh" type="button">새로고침</button>
-            </div>
-          </div>
-          <p class="empty-state" id="lecture-summary">로그인하면 최신 강연을 불러옵니다.</p>
-          <div class="lecture-list" id="lecture-list" aria-live="polite"></div>
-        </article>
+              <div class="lecture-feed" id="home-lecture-list" aria-live="polite"></div>
+            </section>
 
-        <aside class="panel detail-panel" aria-labelledby="detail-title">
-          <div class="panel-heading">
-            <div>
-              <p class="eyebrow">06 · Detail</p>
-              <h2 id="detail-title">강연 상세</h2>
-            </div>
-          </div>
-          <div id="lecture-detail" class="detail-content">
-            <p class="empty-state">왼쪽 목록에서 강연을 선택하세요.</p>
-          </div>
-        </aside>
+            <section class="view" id="view-search" data-view="search" aria-labelledby="search-title" hidden>
+              <p class="eyebrow">DISCOVER</p>
+              <h1 id="search-title">강연 <em>찾기</em></h1>
+              <form class="search-form" id="search-form" role="search">
+                <label class="visually-hidden" for="lecture-search">강연 제목 검색</label>
+                <input id="lecture-search" type="search" inputmode="search" autocomplete="off" placeholder="제목으로 검색">
+                <button type="submit" aria-label="검색">⌕</button>
+              </form>
+              <p class="inline-help">현재 서버는 강연 제목으로 검색합니다.</p>
+              <div class="section-heading section-heading--tight">
+                <div>
+                  <p class="eyebrow">RESULTS</p>
+                  <h2 id="search-summary">최근 강연</h2>
+                </div>
+                <button class="text-button" id="search-refresh" type="button">새로고침</button>
+              </div>
+              <div class="lecture-feed" id="search-lecture-list" aria-live="polite"></div>
+            </section>
+
+            <section class="view" id="view-interests" data-view="interests" aria-labelledby="interest-title" hidden>
+              <p class="eyebrow">FOR YOU</p>
+              <h1 id="interest-title">관심 <em>키워드</em></h1>
+              <p class="intro">관심 있는 분야를 고르면 같은 태그의 공개 강연을 추천합니다.</p>
+
+              <section class="interest-box" aria-live="polite">
+                <div class="section-heading section-heading--tight">
+                  <div>
+                    <p class="eyebrow">MY KEYWORDS</p>
+                    <h2>어떤 주제가 궁금한가요?</h2>
+                  </div>
+                  <button class="text-button" id="interest-refresh" type="button">갱신</button>
+                </div>
+                <form id="interest-form">
+                  <div class="keyword-list" id="interest-tag-list"></div>
+                  <p class="inline-help" id="interest-help">로그인하면 키워드를 선택할 수 있습니다.</p>
+                  <button class="primary-button" type="submit" id="interest-save">관심 키워드 저장</button>
+                </form>
+              </section>
+
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">RECOMMENDED</p>
+                  <h2 id="interest-summary">관심 강좌</h2>
+                </div>
+                <button class="text-button" id="interest-lectures-refresh" type="button">새로고침</button>
+              </div>
+              <div class="lecture-feed" id="interest-lecture-list" aria-live="polite"></div>
+            </section>
+
+            <section class="view" id="view-account" data-view="account" aria-labelledby="account-title" hidden>
+              <p class="eyebrow">MY ARCHIVE</p>
+              <h1 id="account-title">내 <em>계정</em></h1>
+
+              <section class="account-card" id="signed-out-card">
+                <h2>로그인하고 내 아카이브를 시작하세요</h2>
+                <p>최근 강연, 상세 아티클, 관심 키워드 추천을 실제 서버 데이터로 확인합니다.</p>
+                <form class="login-form" id="login-form">
+                  <label>
+                    이메일
+                    <input id="email" name="email" type="email" autocomplete="email" placeholder="name@example.com" required>
+                  </label>
+                  <label>
+                    비밀번호
+                    <input id="password" name="password" type="password" autocomplete="current-password" required>
+                  </label>
+                  <button class="primary-button" type="submit">로그인</button>
+                </form>
+                <p class="inline-help">비밀번호는 저장하지 않고, 로그인 토큰은 현재 브라우저 탭에만 보관합니다.</p>
+              </section>
+
+              <section class="account-card" id="signed-in-card" hidden>
+                <div class="profile-row">
+                  <div class="avatar" aria-hidden="true">S</div>
+                  <div>
+                    <strong id="account-email">로그인됨</strong>
+                    <span id="account-role">사용자</span>
+                  </div>
+                  <button class="text-button" id="logout-button" type="button">로그아웃</button>
+                </div>
+                <p>관심 키워드와 강연 목록은 서버 계정 기준으로 저장됩니다.</p>
+                <a class="admin-link" id="swagger-link" href="#" target="_blank" rel="noreferrer" hidden>관리자 API · Swagger 열기 ↗</a>
+              </section>
+
+              <section class="settings-card">
+                <div class="section-heading section-heading--tight">
+                  <div>
+                    <p class="eyebrow">CONNECTION</p>
+                    <h2>서버 연결</h2>
+                  </div>
+                  <button class="text-button" id="health-refresh" type="button">확인</button>
+                </div>
+                <form id="api-config-form">
+                  <label for="api-base-url">Cloud Run API 주소</label>
+                  <div class="api-input-row">
+                    <input id="api-base-url" name="apiBaseUrl" type="url" inputmode="url" autocomplete="url" placeholder="https://…run.app" required>
+                    <button class="secondary-button" type="submit">저장</button>
+                  </div>
+                </form>
+                <dl class="connection-facts">
+                  <div>
+                    <dt>상태</dt>
+                    <dd id="health-state">확인 전</dd>
+                  </div>
+                  <div>
+                    <dt>응답</dt>
+                    <dd id="health-latency">—</dd>
+                  </div>
+                  <div>
+                    <dt>마지막 확인</dt>
+                    <dd id="health-checked-at">—</dd>
+                  </div>
+                </dl>
+                <p class="inline-help" id="health-copy">공개 API 주소만 입력하세요. 비밀번호나 JWT secret은 절대 입력하지 마세요.</p>
+              </section>
+
+              <section class="settings-card build-card">
+                <p class="eyebrow">DEPLOYMENT</p>
+                <h2>현재 배포 버전</h2>
+                <dl class="build-facts">
+                  <div><dt>웹 화면</dt><dd id="frontend-revision">확인 중</dd></div>
+                  <div><dt>API 서버</dt><dd id="backend-revision">확인 중</dd></div>
+                  <div><dt>웹 배포 시각</dt><dd id="frontend-deployed-at">—</dd></div>
+                </dl>
+                <p class="inline-help" id="version-copy">웹과 서버의 revision이 같으면 같은 GitHub 커밋 기준으로 배포된 상태입니다.</p>
+              </section>
+            </section>
+          </main>
+
+          <nav class="bottom-nav" aria-label="앱 탐색">
+            <button class="nav-button nav-button--active" type="button" data-view-target="home" aria-current="page"><span aria-hidden="true">⌂</span>홈</button>
+            <button class="nav-button" type="button" data-view-target="search"><span aria-hidden="true">⌕</span>검색</button>
+            <button class="nav-button" type="button" data-view-target="interests"><span aria-hidden="true">♡</span>관심</button>
+            <button class="nav-button" type="button" data-view-target="account"><span aria-hidden="true">◎</span>내 정보</button>
+          </nav>
+        </div>
       </section>
+      <p class="preview-caption">데스크톱에서는 가상 휴대폰으로, 휴대폰에서는 전체 화면 앱으로 표시됩니다.</p>
     </main>
 
-    <footer class="site-footer">
-      <span>SNUTI ExP Archive Server dashboard</span>
-      <a id="swagger-link" href="#" target="_blank" rel="noreferrer" hidden>Swagger API 열기 ↗</a>
-    </footer>
+    <section class="detail-sheet" id="detail-sheet" aria-labelledby="detail-title" aria-modal="true" role="dialog" hidden>
+      <div class="detail-sheet__backdrop" data-close-detail></div>
+      <article class="detail-sheet__panel">
+        <div class="detail-sheet__header">
+          <button class="round-button" type="button" data-close-detail aria-label="상세 닫기">←</button>
+          <span>LECTURE DETAIL</span>
+          <span aria-hidden="true"></span>
+        </div>
+        <div class="detail-content" id="lecture-detail">
+          <p class="empty-state">강연을 선택하면 상세 내용을 표시합니다.</p>
+        </div>
+      </article>
+    </section>
 
-    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
   </body>
 </html>

@@ -48,6 +48,9 @@ app:
   cors:
     # Add other trusted origins through CORS_ALLOWED_ORIGINS as a comma-separated list.
     allowed-origins: ${CORS_ALLOWED_ORIGINS:https://haru1dh.github.io,http://localhost:5173,http://localhost:63342}
+  release:
+    # Cloud Build supplies only the deployed commit SHA. This is safe to show publicly.
+    revision: ${APP_RELEASE_REVISION:local}
 
 management:
   health:

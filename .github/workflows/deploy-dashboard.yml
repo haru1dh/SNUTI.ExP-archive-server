@@ -1,12 +1,9 @@
-name: Deploy archive dashboard to GitHub Pages
+name: Deploy mobile archive app to GitHub Pages
 
 on:
   push:
     branches:
       - main
-    paths:
-      - "docs/dashboard/**"
-      - ".github/workflows/deploy-dashboard.yml"
   workflow_dispatch:
 
 permissions:
@@ -16,10 +13,12 @@ permissions:
 
 concurrency:
   group: github-pages
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   deploy:
+    # A manual run from a feature branch must never overwrite the public site.
+    if: github.ref == 'refs/heads/main'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -28,9 +27,10 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v5
 
-      - name: Configure public API URL
+      - name: Configure public API URL and deployment marker
         env:
           API_BASE_URL: ${{ vars.EXP_ARCHIVE_API_BASE_URL }}
+          DEPLOYED_AT: ${{ github.event.head_commit.timestamp }}
         run: |
           node <<'NODE'
           const fs = require("node:fs");
@@ -38,16 +38,26 @@ jobs:
           if (url && !/^https?:\/\//.test(url)) {
             throw new Error("EXP_ARCHIVE_API_BASE_URL must be an http(s) URL.");
           }
+
           fs.writeFileSync(
             "docs/dashboard/api-config.js",
             `window.EXP_ARCHIVE_API_BASE_URL = ${JSON.stringify(url)};\n`
+          );
+
+          const deployment = {
+            revision: (process.env.GITHUB_SHA || "unknown").trim(),
+            deployedAt: (process.env.DEPLOYED_AT || new Date().toISOString()).trim()
+          };
+          fs.writeFileSync(
+            "docs/dashboard/deploy-meta.js",
+            `window.SNUTI_DASHBOARD_DEPLOYMENT = ${JSON.stringify(deployment, null, 2)};\n`
           );
           NODE
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
-      - name: Upload dashboard artifact
+      - name: Upload mobile app artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: docs/dashboard

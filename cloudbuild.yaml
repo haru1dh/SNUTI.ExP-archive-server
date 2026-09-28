@@ -23,6 +23,9 @@ steps:
       - '--platform'
       - 'managed'
       - '--allow-unauthenticated'
+      # Preserve existing Cloud Run secret/env mappings while attaching the
+      # non-secret Git revision that the mobile app displays.
+      - '--update-env-vars=APP_RELEASE_REVISION=$COMMIT_SHA'
 
 images:
   - 'asia-northeast3-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/trail-server:$COMMIT_SHA'
