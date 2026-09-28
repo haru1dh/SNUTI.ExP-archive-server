@@ -57,6 +57,27 @@ class LectureQueryService(
     }
 
     /**
+     * Returns only published lectures for one keyword category.
+     * This is intentionally separate from personalized recommendations so a
+     * keyword browse action never changes the caller's saved interests.
+     */
+    @Transactional(readOnly = true)
+    fun getLecturesByTag(
+        tagId: Long,
+        pageable: Pageable
+    ): Page<LectureListItemResponse> {
+        val sortedPageable = createSortedPageable(pageable)
+
+        return lectureRepository
+            .findPublishedByTagIds(
+                status = LectureStatus.PUBLISHED,
+                tagIds = listOf(tagId),
+                pageable = sortedPageable
+            )
+            .map { lecture -> toListItemResponse(lecture) }
+    }
+
+    /**
      * Returns published lectures that share at least one tag with the caller's
      * saved interest keywords. No interests is a valid empty recommendation set.
      */
