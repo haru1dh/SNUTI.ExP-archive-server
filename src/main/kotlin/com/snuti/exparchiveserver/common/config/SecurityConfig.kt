@@ -36,7 +36,7 @@ class SecurityConfig(
                 it.requestMatchers(HttpMethod.PATCH, "/auth/password").authenticated()
                 it.requestMatchers(HttpMethod.DELETE, "/auth/me").authenticated()
                 it.requestMatchers("/auth/**").permitAll()
-                it.requestMatchers("/actuator/health").permitAll()
+                it.requestMatchers("/actuator/health", "/public/release").permitAll()
                 it.requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 it.requestMatchers(HttpMethod.GET, "/tags", "/tags/**").authenticated()
                 it.requestMatchers("/admin/**").hasRole("ADMIN")
